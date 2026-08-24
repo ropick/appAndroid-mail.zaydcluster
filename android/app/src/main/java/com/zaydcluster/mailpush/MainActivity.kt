@@ -19,14 +19,18 @@ class MainActivity : AppCompatActivity() {
         tv.setTextIsSelectable(true)
         setContentView(tv)
         requestNotificationPermission()
-        FirebaseInstallations.getInstance().getToken(true)
-            .addOnCompleteListener { task ->
-                tv.text = if (task.isSuccessful) {
-                    "FCM Token (salin ke server):\n\n${task.result.token}"
-                } else {
-                    "Gagal mengambil token: ${task.exception?.message}"
+        try {
+            FirebaseInstallations.getInstance().getToken(true)
+                .addOnCompleteListener { task ->
+                    tv.text = if (task.isSuccessful) {
+                        "FCM Token (salin ke server):\n\n${task.result.token}"
+                    } else {
+                        "Gagal mengambil token: ${task.exception?.message}"
+                    }
                 }
-            }
+        } catch (e: Exception) {
+            tv.text = "Error inisialisasi:\n\n${e.javaClass.simpleName}: ${e.message}"
+        }
     }
 
     private fun requestNotificationPermission() {
