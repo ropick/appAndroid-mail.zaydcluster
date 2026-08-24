@@ -8,7 +8,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.google.firebase.installations.FirebaseInstallations
+import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : AppCompatActivity() {
 
@@ -20,10 +20,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(tv)
         requestNotificationPermission()
         try {
-            FirebaseInstallations.getInstance().getToken(true)
+            FirebaseMessaging.getInstance().token
                 .addOnCompleteListener { task ->
                     tv.text = if (task.isSuccessful) {
-                        "FCM Token (salin ke server):\n\n${task.result.token}"
+                        "FCM Token (salin ke server):\n\n${task.result}"
                     } else {
                         "Gagal mengambil token: ${task.exception?.message}"
                     }
