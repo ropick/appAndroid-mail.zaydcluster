@@ -6,7 +6,6 @@ local.properties
 __pycache__/
 venv/
 *.pyc
-google-services.json
 service-account.json
 tokens.json
 config.json
