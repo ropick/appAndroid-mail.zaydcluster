@@ -93,8 +93,11 @@ class FCMSender:
             payload = {
                 "message": {
                     "token": token,
-                    "notification": {"title": title[:200], "body": body[:200]},
-                    "android": {"priority": "HIGH"},
+                    "data": {"title": title[:200], "body": body[:200]},
+                    "android": {
+                        "priority": "HIGH",
+                        "ttl": "3600s",
+                    },
                 }
             }
             try:

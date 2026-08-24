@@ -12,8 +12,8 @@ android {
         applicationId = "com.zaydcluster.mailpush"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1-webmail"
+        versionCode = 3
+        versionName = "1.2-data-push"
     }
 
     compileOptions {

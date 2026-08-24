@@ -12,8 +12,8 @@ import com.google.firebase.messaging.RemoteMessage
 class PushService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
-        val title = message.notification?.title ?: "Email baru masuk"
-        val body = message.notification?.body ?: ""
+        val title = message.data["title"] ?: "Email baru masuk"
+        val body = message.data["body"] ?: ""
         showNotification(title, body)
     }
 
