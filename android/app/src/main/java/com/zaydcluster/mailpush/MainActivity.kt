@@ -23,7 +23,7 @@ class MainActivity : AppCompatActivity() {
             FirebaseMessaging.getInstance().token
                 .addOnCompleteListener { task ->
                     tv.text = if (task.isSuccessful) {
-                        "FCM Token (salin ke server):\n\n${task.result}"
+                        "MailPush v${BuildConfig.VERSION_NAME}\n\nFCM Token:\n\n${task.result}"
                     } else {
                         "Gagal mengambil token: ${task.exception?.message}"
                     }
