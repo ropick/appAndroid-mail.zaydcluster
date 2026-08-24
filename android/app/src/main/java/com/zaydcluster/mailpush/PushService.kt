@@ -25,12 +25,13 @@ class PushService : FirebaseMessagingService() {
             )
         }
         val pi = PendingIntent.getActivity(
-            this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
+            this, 0, Intent(this, WebActivity::class.java), PendingIntent.FLAG_IMMUTABLE
         )
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_email)
             .setContentTitle(title)
             .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setAutoCancel(true)
             .setContentIntent(pi)
             .build()
