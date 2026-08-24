@@ -1,0 +1,44 @@
+package com.zaydcluster.mailpush
+
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.Bundle
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.google.firebase.installations.FirebaseInstallations
+
+class MainActivity : AppCompatActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val tv = TextView(this)
+        tv.setPadding(64, 64, 64, 64)
+        tv.setTextIsSelectable(true)
+        setContentView(tv)
+        requestNotificationPermission()
+        FirebaseInstallations.getInstance().getToken(true)
+            .addOnCompleteListener { task ->
+                tv.text = if (task.isSuccessful) {
+                    "FCM Token (salin ke server):\n\n${task.result.token}"
+                } else {
+                    "Gagal mengambil token: ${task.exception?.message}"
+                }
+            }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this, Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1
+                )
+            }
+        }
+    }
+}

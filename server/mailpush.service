@@ -1,0 +1,15 @@
+[Unit]
+Description=MailPush - IMAP IDLE watcher to FCM push
+After=network-online.target dovecot.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/mailpush/venv/bin/python /opt/mailpush/mailpush.py
+Restart=always
+RestartSec=15
+TimeoutStopSec=45
+User=root
+
+[Install]
+WantedBy=multi-user.target
