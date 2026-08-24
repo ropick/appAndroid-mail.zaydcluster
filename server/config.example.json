@@ -1,16 +1,18 @@
 {
-  "imap": {
-    "host": "127.0.0.1",
-    "port": 993,
-    "no_verify_ssl": true,
-    "user": "ropick@zaydcluster.com",
-    "password": "GANTI-DENGAN-PASSWORD-ROPICK"
-  },
   "fcm": {
     "project_id": "zaydcluster-mail",
     "service_account_path": "/etc/mailpush/service-account.json"
   },
   "push": {
     "tokens_file": "/etc/mailpush/tokens.json"
-  }
+  },
+  "accounts": [
+    {
+      "host": "127.0.0.1",
+      "port": 993,
+      "no_verify_ssl": true,
+      "user": "ropick@zaydcluster.com",
+      "password": "GANTI-DENGAN-PASSWORD"
+    }
+  ]
 }

@@ -4,7 +4,12 @@ import logging
 import signal
 import ssl
 import sys
+import threading
 import time
+from email import policy
+from email.header import decode_header, make_header
+from email.parser import BytesParser
+from email.utils import parseaddr
 from pathlib import Path
 
 import requests
@@ -37,16 +42,13 @@ signal.signal(signal.SIGINT, stop_handler)
 
 def load_config():
     cfg = json.loads(CONFIG_PATH.read_text())
-    for section, keys in {
-        "imap": ["host", "port", "user", "password"],
-        "fcm": ["project_id", "service_account_path"],
-        "push": ["tokens_file"],
-    }.items():
-        if section not in cfg:
-            raise ValueError(f"config missing section '{section}'")
-        for k in keys:
-            if k not in cfg[section]:
-                raise ValueError(f"config missing '{section}.{k}'")
+    if "accounts" not in cfg or not cfg["accounts"]:
+        raise ValueError("config missing 'accounts' list")
+    required = {"host", "port", "user", "password"}
+    for i, acc in enumerate(cfg["accounts"]):
+        missing = required - set(acc)
+        if missing:
+            raise ValueError(f"accounts[{i}] missing: {missing}")
     return cfg
 
 
@@ -91,7 +93,7 @@ class FCMSender:
             payload = {
                 "message": {
                     "token": token,
-                    "notification": {"title": title, "body": body},
+                    "notification": {"title": title[:200], "body": body[:200]},
                     "android": {"priority": "HIGH"},
                 }
             }
@@ -101,7 +103,7 @@ class FCMSender:
                     sent += 1
                 else:
                     failed += 1
-                    log.error("FCM error %s: %s", resp.status_code, resp.text[:200])
+                    log.error("FCM error %s: %s", resp.status_code, resp.text[:300])
                     if resp.status_code == 404:
                         log.warning("token invalid/unregistered, consider removing")
             except Exception as exc:
@@ -122,16 +124,21 @@ def load_tokens(path):
         return []
 
 
-def inspect_new_mail(client):
-    unread = client.search(["UNSEEN"])
-    count = len(unread)
-    snippet = ""
-    if unread:
-        latest = max(unread)
-        fields = client.fetch(
-            [latest], ["BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]"]
-        )
-        msg = fields.get(latest)
+def decode_mime(value):
+    if not value:
+        return ""
+    try:
+        return str(make_header(decode_header(str(value))))
+    except Exception:
+        return str(value)
+
+
+def fetch_newest_header(client, msns):
+    fields = client.fetch(msns, ["BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]"])
+    sender = subject = ""
+    latest = max(fields.keys()) if fields else None
+    if latest is not None:
+        msg = fields[latest]
         raw = b""
         if isinstance(msg, dict):
             for value in msg.values():
@@ -139,13 +146,11 @@ def inspect_new_mail(client):
                     raw += value
         elif isinstance(msg, bytes):
             raw = msg
-        lines = [
-            line.decode("utf-8", "replace").strip()
-            for line in raw.splitlines()
-            if line.strip()
-        ]
-        snippet = " ".join(lines)[:200]
-    return count, snippet
+        parsed = BytesParser(policy=policy.default).parsebytes(raw)
+        addr_name, addr_mail = parseaddr(str(parsed.get("From", "")))
+        sender = decode_mime(addr_name) or addr_mail
+        subject = decode_mime(parsed.get("Subject"))
+    return sender, subject
 
 
 def idle_wait(client, total):
@@ -160,30 +165,23 @@ def idle_wait(client, total):
     return responses
 
 
-def watch(cfg):
-    imap_cfg = cfg["imap"]
-    sender = FCMSender(
-        cfg["fcm"]["project_id"],
-        cfg["fcm"]["service_account_path"],
-    )
+def watch_account(acc, sender):
+    ctx = ssl.create_default_context()
+    if acc.get("no_verify_ssl"):
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
     while running:
         try:
-            log.info("connecting %s@%s:%s", imap_cfg["user"], imap_cfg["host"], imap_cfg["port"])
-            ctx = ssl.create_default_context()
-            if imap_cfg.get("no_verify_ssl"):
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
+            log.info(
+                "[%s] connecting %s:%s", acc["user"], acc["host"], acc["port"]
+            )
             with IMAPClient(
-                imap_cfg["host"],
-                port=int(imap_cfg["port"]),
-                ssl_context=ctx,
+                acc["host"], port=int(acc["port"]), ssl_context=ctx
             ) as client:
-                client.login(imap_cfg["user"], imap_cfg["password"])
-                client.select_folder("INBOX")
-                baseline = len(client.search(["UNSEEN"]))
-                log.info(
-                    "IDLE started for %s (%d unread)", imap_cfg["user"], baseline
-                )
+                client.login(acc["user"], acc["password"])
+                folder_info = client.select_folder("INBOX")
+                next_uid = int(folder_info[b"UIDNEXT"])
+                log.info("[%s] IDLE started (next UID %d)", acc["user"], next_uid)
                 while running:
                     client.idle()
                     responses = idle_wait(client, IDLE_TIMEOUT)
@@ -192,25 +190,33 @@ def watch(cfg):
                         break
                     if responses:
                         time.sleep(DEBOUNCE_SECONDS)
-                        count, snippet = inspect_new_mail(client)
-                        if count > baseline:
+                        folder_info = client.select_folder("INBOX")
+                        cur = int(folder_info[b"UIDNEXT"])
+                        if cur > next_uid:
+                            new_uids = list(range(next_uid, cur))
+                            delta = len(new_uids)
+                            who, subject = fetch_newest_header(
+                                client, new_uids[-5:]
+                            )
+                            title = subject or "(tanpa subjek)"
+                            body = f"{who or '?'} → {acc['user']}"
+                            if delta > 1:
+                                body += f" (+{delta} pesan baru)"
                             log.info(
-                                "new mail detected: +%d (%s)",
-                                count - baseline,
-                                snippet,
+                                "[%s] new mail: +%d from=%s subj=%s",
+                                acc["user"],
+                                delta,
+                                who,
+                                subject,
                             )
-                            title = "Email baru masuk"
-                            body = snippet or f"{imap_cfg['user']} (+{count - baseline})"
                             sender.send_to_all(
-                                load_tokens(cfg["push"]["tokens_file"]),
-                                title,
-                                body,
+                                load_tokens(sender.tokens_file), title, body
                             )
-                        baseline = count
+                        next_uid = max(next_uid, cur)
         except Exception as exc:
-            log.error("connection error: %s", exc)
+            log.error("[%s] connection error: %s", acc.get("user"), exc)
         if running:
-            log.info("reconnecting in 10s...")
+            log.info("[%s] reconnecting in 10s...", acc.get("user"))
             time.sleep(10)
 
 
@@ -220,8 +226,18 @@ def main():
     except Exception as exc:
         log.critical("config error: %s", exc)
         sys.exit(1)
-    log.info("mailpush starting (account: %s)", cfg["imap"]["user"])
-    watch(cfg)
+    fcm_sender = FCMSender(
+        cfg["fcm"]["project_id"], cfg["fcm"]["service_account_path"]
+    )
+    fcm_sender.tokens_file = cfg["push"]["tokens_file"]
+    threads = []
+    for acc in cfg["accounts"]:
+        t = threading.Thread(target=watch_account, args=(acc, fcm_sender), daemon=True)
+        t.start()
+        threads.append(t)
+    log.info("mailpush watching %d account(s)", len(threads))
+    while any(t.is_alive() for t in threads) and running:
+        time.sleep(1)
     log.info("mailpush stopped")
 
 
