@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "123456789000",
+    "project_number": "535339921417",
     "project_id": "zaydcluster-mail",
-    "storage_bucket": "zaydcluster-mail.appspot.com"
+    "storage_bucket": "zaydcluster-mail.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789000:android:ababababababababab",
+        "mobilesdk_app_id": "1:535339921417:android:37adb50e16c0d0411888d8",
         "android_client_info": {
           "package_name": "com.zaydcluster.mailpush"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          "current_key": "AIzaSyD8LqrOhktr9SfmWuY0q-t1HKa3MQpbUj0"
         }
       ],
       "services": {
