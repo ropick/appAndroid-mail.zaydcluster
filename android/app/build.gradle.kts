@@ -12,8 +12,8 @@ android {
         applicationId = "com.zaydcluster.mailpush"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.2-data-push"
+        versionCode = 4
+        versionName = "1.3-icon"
     }
 
     compileOptions {
